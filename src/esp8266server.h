@@ -16,35 +16,47 @@ along with The Arduino WiFiEsp library.  If not, see
 <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------*/
 
-#ifndef RingBuffer_h
-#define RingBuffer_h
+#ifndef WiFiEspServer_h
+#define WiFiEspServer_h
 
-#include "hal.h"
+#include "esp8266.h"
 
 namespace PeripheralIO
 {
 
-class ESPRingBuffer
-{
-public:
-	ESPRingBuffer(unsigned int size);
-	~ESPRingBuffer();
+class WiFiEspClient;
 
-	void reset();
-	void init();
-	void push(char c);
-	int getPos();
-	bool endsWith(const char* str);
-	void getStr(char * destination, unsigned int skipChars);
-	void getStrN(char * destination, unsigned int skipChars, unsigned int num);
+class WiFiEspServer : public Server
+{
+
+public:
+	WiFiEspServer(uint16_t port);
+
+
+	/*
+	* Gets a client that is connected to the server and has data available for reading.
+	* The connection persists when the returned client object goes out of scope; you can close it by calling client.stop().
+	* Returns a Client object; if no Client has data available for reading, this object will evaluate to false in an if-statement.
+	*/
+	WiFiEspClient available(uint8_t* status = NULL);
+
+	/*
+	* Start the TCP server
+	*/
+	void begin();
+
+	virtual size_t write(uint8_t);
+	virtual size_t write(const uint8_t *buf, size_t size);
+
+	uint8_t status();
+
+	using Print::write;
 
 
 private:
-
-	unsigned int _size;
-	char* ringBuf;
-	char* ringBufEnd;
-	char* ringBufP;
+	uint16_t _port;
+	uint8_t _sock;
+	bool _started;
 
 };
 

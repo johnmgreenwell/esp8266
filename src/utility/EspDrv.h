@@ -19,13 +19,11 @@ along with The Arduino WiFiEsp library.  If not, see
 #ifndef EspDrv_h
 #define EspDrv_h
 
-#include "Stream.h"
-#include "IPAddress.h"
-
-
+#include "hal.h"
 #include "RingBuffer.h"
 
-
+namespace PeripheralIO
+{
 
 // Maximum size of a SSID
 #define WL_SSID_MAX_LENGTH 32
@@ -120,7 +118,7 @@ class EspDrv
 
 public:
 
-    static void wifiDriverInit(Stream *espSerial);
+    static void wifiDriverInit(HAL::UART* esp_serial);
 
 
     /* Start Wifi connection with passphrase
@@ -286,7 +284,7 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 
 private:
-	static Stream *espSerial;
+	static HAL::UART* espSerial;
 
 	static long _bufPos;
 	static uint8_t _connId;
@@ -312,7 +310,7 @@ private:
 
 
 	// the ring buffer is used to search the tags in the stream
-	static RingBuffer ringBuf;
+	static ESPRingBuffer ringBuf;
 
 
 	//static int sendCmd(const char* cmd, int timeout=1000);
@@ -336,5 +334,7 @@ private:
 };
 
 extern EspDrv espDrv;
+
+}
 
 #endif

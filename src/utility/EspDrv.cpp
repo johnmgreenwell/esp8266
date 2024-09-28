@@ -16,12 +16,11 @@ along with The Arduino WiFiEsp library.  If not, see
 <http://www.gnu.org/licenses/>.
 --------------------------------------------------------------------*/
 
-#include <Arduino.h>
-#include <avr/pgmspace.h>
-
 #include "utility/EspDrv.h"
 #include "utility/debug.h"
 
+namespace PeripheralIO
+{
 
 #define NUMESPTAGS 5
 
@@ -43,10 +42,9 @@ typedef enum
 	TAG_CONNECT
 } TagsEnum;
 
+HAL::UART* EspDrv::espSerial;
 
-Stream *EspDrv::espSerial;
-
-RingBuffer EspDrv::ringBuf(32);
+ESPRingBuffer EspDrv::ringBuf(32);
 
 // Array of data to cache the information related to the networks discovered
 char 	EspDrv::_networkSsid[][WL_SSID_MAX_LENGTH] = {{"1"},{"2"},{"3"},{"4"},{"5"}};
@@ -67,11 +65,11 @@ uint16_t EspDrv::_remotePort  =0;
 uint8_t EspDrv::_remoteIp[] = {0};
 
 
-void EspDrv::wifiDriverInit(Stream *espSerial)
+void EspDrv::wifiDriverInit(HAL::UART* esp_serial)
 {
 	LOGDEBUG(F("> wifiDriverInit"));
 
-	EspDrv::espSerial = espSerial;
+	espSerial = esp_serial;
 
 	bool initOK = false;
 	
@@ -82,13 +80,13 @@ void EspDrv::wifiDriverInit(Stream *espSerial)
 			initOK=true;
 			break;
 		}
-		delay(1000);
+		HAL::delay_ms(1000);
 	}
 
 	if (!initOK)
 	{
 		LOGERROR(F("Cannot initialize ESP module"));
-		delay(5000);
+		HAL::delay_ms(5000);
 		return;
 	}
 
@@ -102,7 +100,7 @@ void EspDrv::wifiDriverInit(Stream *espSerial)
 		fwVersion[1] != '.')
 	{
 		LOGWARN1(F("Warning: Unsupported firmware"), fwVersion);
-		delay(4000);
+		HAL::delay_ms(4000);
 	}
 	else
 	{
@@ -116,7 +114,7 @@ void EspDrv::reset()
 	LOGDEBUG(F("> reset"));
 
 	sendCmd(F("AT+RST"));
-	delay(3000);
+	HAL::delay_ms(3000);
 	espEmptyBuf(false);  // empty dirty characters from the buffer
 
 	// disable echo of commands
@@ -124,7 +122,7 @@ void EspDrv::reset()
 
 	// set station mode
 	sendCmd(F("AT+CWMODE=1"));
-	delay(200);
+	HAL::delay_ms(200);
 
 	// set multiple connections mode
 	sendCmd(F("AT+CIPMUX=1"));
@@ -138,7 +136,7 @@ void EspDrv::reset()
 
 	// enable DHCP
 	sendCmd(F("AT+CWDHCP=1,1"));
-	delay(200);
+	HAL::delay_ms(200);
 }
 
 
@@ -163,7 +161,7 @@ bool EspDrv::wifiConnect(const char* ssid, const char* passphrase)
 	LOGWARN1(F("Failed connecting to"), ssid);
 
 	// clean additional messages logged after the FAIL tag
-	delay(1000);
+	HAL::delay_ms(1000);
 	espEmptyBuf(false);
 
 	return false;
@@ -213,7 +211,7 @@ int8_t EspDrv::disconnect()
 		return WL_DISCONNECTED;
 
 	// wait and clear any additional message
-	delay(2000);
+	HAL::delay_ms(2000);
 	espEmptyBuf(false);
 
 	return WL_DISCONNECTED;
@@ -227,13 +225,13 @@ void EspDrv::config(IPAddress ip)
 	sendCmd(F("AT+CWDHCP_CUR=1,0"));
 	
 	// it seems we need to wait here...
-	delay(500);
+	HAL::delay_ms(500);
 	
 	char buf[16];
 	sprintf_P(buf, PSTR("%d.%d.%d.%d"), ip[0], ip[1], ip[2], ip[3]);
 
 	int ret = sendCmd(F("AT+CIPSTA_CUR=\"%s\""), 2000, buf);
-	delay(500);
+	HAL::delay_ms(500);
 
 	if (ret==TAG_OK)
 	{
@@ -251,13 +249,13 @@ void EspDrv::configAP(IPAddress ip)
 	sendCmd(F("AT+CWDHCP_CUR=2,0"));
 	
 	// it seems we need to wait here...
-	delay(500);
+	HAL::delay_ms(500);
 	
 	char buf[16];
 	sprintf_P(buf, PSTR("%d.%d.%d.%d"), ip[0], ip[1], ip[2], ip[3]);
 
 	int ret = sendCmd(F("AT+CIPAP_CUR=\"%s\""), 2000, buf);
-	delay(500);
+	HAL::delay_ms(500);
 
 	if (ret==TAG_OK)
 	{
@@ -466,7 +464,7 @@ uint8_t EspDrv::getScanNetworks()
 	LOGDEBUG(F("----------------------------------------------"));
 	LOGDEBUG(F(">> AT+CWLAP"));
 	
-	espSerial->println(F("AT+CWLAP"));
+	espSerial->println("AT+CWLAP");
 	
 	idx = readUntil(10000, "+CWLAP:(");
 	
@@ -727,7 +725,7 @@ bool EspDrv::getData(uint8_t connId, uint8_t *data, bool peek, bool* connClose)
 				// after the data packet a ",CLOSED" string may be received
 				// this means that the socket is now closed
 
-				delay(5);
+				HAL::delay_ms(5);
 
 				if (espSerial->available())
 				{
@@ -797,7 +795,7 @@ bool EspDrv::sendData(uint8_t sock, const uint8_t *data, uint16_t len)
 {
 	LOGDEBUG2(F("> sendData:"), sock, len);
 
-	char cmdBuf[20];
+	char cmdBuf[21];
 	sprintf_P(cmdBuf, PSTR("AT+CIPSEND=%d,%u"), sock, len);
 	espSerial->println(cmdBuf);
 
@@ -808,7 +806,7 @@ bool EspDrv::sendData(uint8_t sock, const uint8_t *data, uint16_t len)
 		return false;
 	}
 
-	espSerial->write(data, len);
+	espSerial->write((char *)data, len);
 
 	idx = readUntil(2000);
 	if(idx!=TAG_SENDOK)
@@ -825,7 +823,7 @@ bool EspDrv::sendData(uint8_t sock, const __FlashStringHelper *data, uint16_t le
 {
 	LOGDEBUG2(F("> sendData:"), sock, len);
 
-	char cmdBuf[20];
+	char cmdBuf[21];
 	uint16_t len2 = len + 2*appendCrLf;
 	sprintf_P(cmdBuf, PSTR("AT+CIPSEND=%d,%u"), sock, len2);
 	espSerial->println(cmdBuf);
@@ -877,7 +875,7 @@ bool EspDrv::sendDataUdp(uint8_t sock, const char* host, uint16_t port, const ui
 		return false;
 	}
 
-	espSerial->write(data, len);
+	espSerial->write((char *)data, len);
 
 	idx = readUntil(2000);
 	if(idx!=TAG_SENDOK)
@@ -926,7 +924,7 @@ bool EspDrv::sendCmdGet(const __FlashStringHelper* cmd, const char* startTag, co
 	LOGDEBUG1(F(">>"), cmd);
 
 	// send AT command to ESP
-	espSerial->println(cmd);
+	espSerial->println((char *)cmd);
 
 	// read result until the startTag is found
 	idx = readUntil(1000, startTag);
@@ -995,7 +993,7 @@ int EspDrv::sendCmd(const __FlashStringHelper* cmd, int timeout)
 	LOGDEBUG(F("----------------------------------------------"));
 	LOGDEBUG1(F(">>"), cmd);
 
-	espSerial->println(cmd);
+	espSerial->println((char *)cmd);
 
 	int idx = readUntil(timeout);
 
@@ -1017,7 +1015,7 @@ int EspDrv::sendCmd(const __FlashStringHelper* cmd, int timeout, ...)
 
 	va_list args;
 	va_start (args, timeout);
-	vsnprintf_P (cmdBuf, CMD_BUFFER_SIZE, (char*)cmd, args);
+	vsnprintf (cmdBuf, CMD_BUFFER_SIZE, (char*)cmd, args);
 	va_end (args);
 
 	espEmptyBuf();
@@ -1121,6 +1119,6 @@ int EspDrv::timedRead()
   return -1; // -1 indicates timeout
 }
 
-
-
 EspDrv espDrv;
+
+}

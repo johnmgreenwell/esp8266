@@ -6,6 +6,33 @@ The WiFiEsp library is very similar to the Arduino [WiFi](http://www.arduino.cc/
 
 Supports ESP SDK version 1.1.1 and above (AT version 0.25 and above).
 
+## Usage
+
+For this modified version, the following hardware abstraction layer (HAL) requirements must be satisfied:
+
+* A UART class in the HAL namespace with the following methods:
+    - uint8_t UART::read(); // Read a byte from the UART buffer
+	- uint8_t UART::write(uint8_t data) // Write a byte to the UART TX
+	- uint32_t UART::write(char *str, uint32_t length) // Write 'length' bytes to UART TX
+	- uint32_t UART::print(char *str) // Print a string to the UART TX
+	- uint32_t UART::printf(const char *str, ...) // Write variable length formatted string to UART TX
+	- uint32_t UART::println(const char *str) // Print string to UART TX and add newline at the end
+	- bool UART::available() // Check whether input bytes have been received by UART RX internal buffer
+	- uint32_t UART::parseInt() // Parse UART RX buffer as integer
+	- bool UART::find(char *target) // Consume string input to UART RX buffer until 'target' string found
+	- int8_t UART::peek() // Retrieve next byte from UART RX internal buffer without consuming it
+* A delay_ms() function in the HAL namespace that delays an accurate milliseconds to be used for timing.
+
+Some further requirements may also be found. Typically, these will mirror the Arduino framework and should be added to `hal.h`.
+
+Namely, these additional requirements include functional equivalents to the Arduino framework's:
+
+* "Stream.h"
+* "Print.h"
+* "Client.h"
+* "Server.h"
+* "IPAddress.h"
+* "Udp.h"
 
 ## Features
 
